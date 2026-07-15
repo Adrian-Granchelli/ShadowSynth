@@ -21,15 +21,15 @@
 // =====================================================================
 
 // --- LFO frequency (Board 0) ---
-float LFO_FREQ_MIN = 1.0f;    // Hz at centerAngle 0
+float LFO_FREQ_MIN = 0.5f;    // Hz at centerAngle 0
 float LFO_FREQ_MAX = 20.0f;   // Hz at centerAngle 100 (exponential map)
 
 // --- Filter cutoff (Board 1) ---
-float LP_CUT_MIN = 300.0f;    // low-pass cutoff at angle 0
-float LP_CUT_MAX = 19000.0f;  // low-pass cutoff at angle 45
-float HP_CUT_MIN = 20.0f;     // high-pass cutoff at angle 55
-float HP_CUT_MAX = 4000.0f;   // high-pass cutoff at angle 100
-float FILTER_Q   = 0.7f;
+float LP_CUT_MIN = 250.0f;    // low-pass cutoff at angle 0
+float LP_CUT_MAX = 20000.0f;  // low-pass cutoff at angle 45
+float HP_CUT_MIN = 1.0f;     // high-pass cutoff at angle 55
+float HP_CUT_MAX = 4500.0f;   // high-pass cutoff at angle 100
+float FILTER_Q   = 0.3f;
 float FILTER_ABS_MIN = 0.0f;      // absolute lower bound for any cutoff write
 float FILTER_ABS_MAX = 20000.0f;  // absolute upper bound for any cutoff write
 float FILTER_STABLE_MIN = 20.0f;  // practical Biquad floor (never write below this)
@@ -37,7 +37,7 @@ float FILTER_STABLE_MIN = 20.0f;  // practical Biquad floor (never write below t
 // --- LFO depth + taper (applied to filter cutoff) ---
 float LFO_DEPTH_OCT     = 2.0f;   // full modulation depth, +/- octaves
 float LFO_DEPTH_OCT_MIN = 0.2f;   // tapered depth near the 20 kHz high end
-float LFO_TAPER_START_HZ = 16000.0f; // base cutoff above which depth tapers toward
+float LFO_TAPER_START_HZ = LP_CUT_MIN; // base cutoff above which depth tapers toward
                                      // LFO_DEPTH_OCT_MIN at FILTER_ABS_MAX (20 kHz)
 
 // --- Oscillators (index 0=sine, 1=square, 2=triangle, 3=saw) ---
@@ -49,13 +49,16 @@ float  oscCentsOffset[4]    = { 0.0f,  0.0f,  3.0f,  -3.0f };
 float WAV_PLAYER_VOLUME = 0.5f;
 
 // --- Smoothing amounts (0..1; higher = smoother/slower glide) ---
-float smoothedCutoffFreqAmount = 0.90f;
-float smoothedLfoFreqAmount    = 0.90f;
-float smoothedNoteAmount       = 0.85f;
-float smoothedVolumeAmount     = 0.85f;
+float smoothedCutoffFreqAmount = 0.60f;
+float smoothedLfoFreqAmount    = 0.60f;
+float smoothedNoteAmount       = 0.55f;
+float smoothedVolumeAmount     = 0.9f;
 
 // --- Reverb (reuses globals.h values; kept here as the tuning entry point) ---
-// DRY_GAIN, WET_GAIN, ROOM_SIZE, DAMPING come from globals.h.
+float DRY_GAIN = 0.9; // Set gain for the dry signal
+float WET_GAIN = 0.1; // Set gain for the wet signal (reverb)
+float ROOM_SIZE = 0.5; // 0 is small 1.00 large 
+float DAMPING = 0.8; // 0 is high free decay slow, 1 is low decay slow
 
 #define SDCARD_CS_PIN 10
 
@@ -198,7 +201,7 @@ inline float mapLog(float t01, float lo, float hi) {
 // distancePct: unused hook for now.
 void modulateSynthFromBoard0(LDRBlob boardBlobs[3], uint8_t distancePct) {
   (void)distancePct; // UNUSED HOOK: reserved for future mapping
-  uint8_t angle = (boardBlobs[0].size == 0) ? 50 : boardBlobs[0].centerAngle;
+  uint8_t angle = (boardBlobs[0].size == 0) ? 100 : boardBlobs[0].centerAngle;
   // UNUSED HOOKS: boardBlobs[0].centerRadius, boardBlobs[0].size (beyond empty check)
 
   float a01 = angle / 100.0f;
@@ -214,18 +217,24 @@ void modulateSynthFromBoard1(LDRBlob boardBlobs[3], uint8_t distancePct) {
   uint8_t angle = (boardBlobs[0].size == 0) ? 50 : boardBlobs[0].centerAngle;
   // UNUSED HOOKS: boardBlobs[0].centerRadius, boardBlobs[0].size (beyond empty check)
 
-  if (angle <= 45) {
-    float t = angle / 45.0f;                    // 0..1 across the LP band
-    g_targetCutoff = mapLog(t, LP_CUT_MIN, LP_CUT_MAX);
-    g_filterMode   = FILTER_LOWPASS;
-  } else if (angle >= 55) {
-    float t = (angle - 55) / 45.0f;             // 0..1 across the HP band
-    g_targetCutoff = mapLog(t, HP_CUT_MIN, HP_CUT_MAX);
-    g_filterMode   = FILTER_HIGHPASS;
-  } else {
-    g_targetCutoff = FILTER_ABS_MAX;            // off: wide open
-    g_filterMode   = FILTER_OFF;
-  }
+  float t = angle / 100.0f;                    // 0..1 across the LP band
+  g_targetCutoff = mapLog(t, LP_CUT_MIN, LP_CUT_MAX);
+  g_filterMode   = FILTER_LOWPASS;
+
+  // Shifting between low-pass to hi-pass
+  // if (angle <= 45) {
+  //   float t = angle / 65.0f;                    // 0..1 across the LP band
+  //   g_targetCutoff = mapLog(t, LP_CUT_MIN, LP_CUT_MAX);
+  //   g_filterMode   = FILTER_LOWPASS;
+  // } else if (angle >= 55) {
+  //   float t = (angle - 55) / 65.0f;             // 0..1 across the HP band
+  //   g_targetCutoff = mapLog(t, HP_CUT_MIN, HP_CUT_MAX);
+  //   g_filterMode   = FILTER_HIGHPASS;
+  // } else {
+  //   g_targetCutoff = FILTER_ABS_MAX;            // off: wide open
+  //   g_filterMode   = FILTER_OFF;
+  // }
+  
 }
 
 // 10-note table: E2 A2 D3 E3 A3 D4 E4 A4 D5 E5 (equal temperament, A4=440)
@@ -297,21 +306,19 @@ void lfoUpdate() {
     return;
   }
 
-  // 4a) Depth taper from the smoothed BASE cutoff (option A):
-  //     full LFO_DEPTH_OCT below LFO_TAPER_START_HZ, tapering linearly to
-  //     LFO_DEPTH_OCT_MIN at FILTER_ABS_MAX (20 kHz).
-  float base = g_smoothedCutoff;
+  // 4a) Depth taper from the smoothed BASE LFO cutoff (option A):
+  float base = g_smoothedLfoFreq;
   float depthOct = LFO_DEPTH_OCT;
-  if (base > LFO_TAPER_START_HZ) {
-    float span = FILTER_ABS_MAX - LFO_TAPER_START_HZ; // e.g. 20000-16000
-    float t = (base - LFO_TAPER_START_HZ) / span;     // 0..1
+  if (base > LFO_FREQ_MIN) {
+    float span = LFO_FREQ_MAX - LFO_FREQ_MIN; 
+    float t = (base - LFO_FREQ_MIN) / span;   
     if (t > 1.0f) t = 1.0f;
     depthOct = LFO_DEPTH_OCT + (LFO_DEPTH_OCT_MIN - LFO_DEPTH_OCT) * t;
   }
 
   // 4b) LFO-modulated cutoff, then asymmetric clamp (clamp the instantaneous
   //     value each tick; the non-clipping side keeps full swing).
-  float modCut = base * powf(2.0f, depthOct * sinf(g_lfoPhase));
+  float modCut = g_targetCutoff * powf(2.0f, depthOct * sinf(g_lfoPhase));
   if (modCut > FILTER_ABS_MAX) modCut = FILTER_ABS_MAX;
   if (modCut < FILTER_ABS_MIN) modCut = FILTER_ABS_MIN;
   if (modCut < FILTER_STABLE_MIN) modCut = FILTER_STABLE_MIN; // Biquad stability floor
@@ -321,6 +328,20 @@ void lfoUpdate() {
     biquadFilter.setLowpass(0, modCut, FILTER_Q);
   } else { // FILTER_HIGHPASS
     biquadFilter.setHighpass(0, modCut, FILTER_Q);
+  }
+
+  // exit function if not in debug mode
+  if (!DEBUG_MODE) return;
+  static uint32_t throttleCount = 0;
+  throttleCount++;
+  if (throttleCount > 100) {
+    throttleCount = 0;
+    Serial.print("Volume %:"); Serial.print(g_smoothedVolume*100);
+    //Serial.print("LFO Hz:"); Serial.print(g_smoothedLfoFreq);
+    Serial.print("\tCutoff Freq:"); Serial.print(modCut); 
+    Serial.print("\tCutoff Freq Avg:"); Serial.print(g_smoothedCutoff); 
+    Serial.print("\tCutoff Freq Min:"); Serial.print(max(g_targetCutoff * powf(2.0f, depthOct * -1), FILTER_ABS_MIN));
+    Serial.print("\tCutoff Freq Max:"); Serial.println(min(g_targetCutoff * powf(2.0f, depthOct * 1), FILTER_ABS_MAX));
   }
 }
 

@@ -4,15 +4,6 @@
 unsigned long now; 
 unsigned long LAST_LOOP; 
 
-// -- AUDIO REVERB -- 
-float DRY_GAIN = 0.9; // Set gain for the dry signal
-float WET_GAIN = 0.1; // Set gain for the wet signal (reverb)
-float ROOM_SIZE = 0.5; // 0 is small 1.00 large 
-float DAMPING = 0.8; // 0 is high free decay slow, 1 is low decay slow
-
-uint16_t MAX_FREQUENCY = 19000;
-
-
 // --- Pin Definitions ---
 const uint8_t button_pin = 2;
 
@@ -43,7 +34,7 @@ struct LDRBlob {
 uint8_t blobMax = 18; // largest blob size to calculate percentage
 // Global variables for your parsed data
 LDRGroup groupedLDRs[3][NUM_GROUPS]; // BASS is [0], MID is [1], TREB is [2]
-LDRBlob LDRBlobs[3][3]; // First Number: BASS is [0], MID is [1], TREB is [2], Second number is tracking each blob
+LDRBlob LDRBlobs[3][3] = {}; // First Number: BASS is [0], MID is [1], TREB is [2], Second number is tracking each blob
 uint8_t ultrasonicDistanceHistoryCount = 0;
 uint8_t ultrasonicDistanceHistoryMax = 5;
 uint16_t ultrasonicDistance[3][5] = {

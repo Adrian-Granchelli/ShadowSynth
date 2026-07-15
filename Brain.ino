@@ -68,45 +68,42 @@ void setup() {
 
 void loop() {
   now = millis();
+  bool updateSynth = false;
 
   // check if serial incoming
   if (Serial7.available() || Serial6.available() || Serial4.available()) {
     ultrasonicDistanceHistoryCount++; 
+    updateSynth = true;
     if (ultrasonicDistanceHistoryCount > ultrasonicDistanceHistoryMax) {
       ultrasonicDistanceHistoryCount = 0; 
     }
   }
-
-  // BASS
+  
+  // read the serial data 
   if (Serial7.available()) {
     // Read the string until the Pico sends the newline ('\n') character
     uint16_t bytesRead = Serial7.readBytesUntil('\n', uartBuffer, BUFFER_SIZE - 1);
-
     parseIncomingUART(0, bytesRead);
     //printUART(0);
-    printBlobs(0);
-    //noteSynthFromBlob(LDRBlobs[0], LDRBlobs[1], ultrasonicDistancePercent[0]);
+    //printBlobs(0);
   }
-
-  // MID
   if (Serial6.available()) {
     // 1. Scoop up the incoming data - Read the string until the Pico sends the newline ('\n') character
     uint16_t bytesRead = Serial6.readBytesUntil('\n', uartBuffer, BUFFER_SIZE - 1);
-    
     parseIncomingUART(1, bytesRead);
     //printUART(1);
     //printBlobs(1);
-    modulateSynthFromBlob(LDRBlobs[1], ultrasonicDistancePercent[1]);
   }
-
-  // TREB
   if (Serial4.available()) {
     // Read the string until the Pico sends the newline ('\n') character
     uint16_t bytesRead = Serial4.readBytesUntil('\n', uartBuffer, BUFFER_SIZE - 1);
-
     parseIncomingUART(2, bytesRead);
     //printUART(2);
-    printBlobs(2);
+    //printBlobs(2);
+  }
+
+  if (updateSynth) {
+    modulateSynthFromBoards(LDRBlobs, ultrasonicDistancePercent);
   }
 
   if (now - LAST_LOOP > LOOP_WAIT ) {
