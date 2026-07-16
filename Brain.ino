@@ -81,23 +81,26 @@ void loop() {
   
   // read the serial data 
   if (Serial7.available()) {
+    updateSynth = true;
     // Read the string until the Pico sends the newline ('\n') character
     uint16_t bytesRead = Serial7.readBytesUntil('\n', uartBuffer, BUFFER_SIZE - 1);
-    parseIncomingUART(0, bytesRead);
+    parseIncomingUART(2, bytesRead);
     //printUART(0);
     //printBlobs(0);
   }
   if (Serial6.available()) {
+    updateSynth = true;
     // 1. Scoop up the incoming data - Read the string until the Pico sends the newline ('\n') character
     uint16_t bytesRead = Serial6.readBytesUntil('\n', uartBuffer, BUFFER_SIZE - 1);
-    parseIncomingUART(1, bytesRead);
+    parseIncomingUART(0, bytesRead);
     //printUART(1);
     //printBlobs(1);
   }
   if (Serial4.available()) {
+    updateSynth = true;
     // Read the string until the Pico sends the newline ('\n') character
     uint16_t bytesRead = Serial4.readBytesUntil('\n', uartBuffer, BUFFER_SIZE - 1);
-    parseIncomingUART(2, bytesRead);
+    parseIncomingUART(1, bytesRead);
     //printUART(2);
     //printBlobs(2);
   }
