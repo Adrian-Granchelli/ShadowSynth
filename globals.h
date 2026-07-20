@@ -8,15 +8,17 @@ unsigned long LAST_LOOP;
 const uint8_t button_pin = 2;
 
 // --- UART ---
-const uint8_t serialTimeoutStartup = 100;
-const uint8_t serialTimeout = 40;
+const uint8_t serialTimeout = 20;
 
 const uint16_t BUFFER_SIZE = 257; // Big enough to hold "1,0,1,..." + distance + \n
 char uartBuffer[BUFFER_SIZE];
 
 // --- DATA STRUCTURES ---
+const uint8_t NUM_BOARDS = 3; 
 const uint8_t TOTAL_LDRS = 59;
 const uint8_t NUM_GROUPS = 19;
+
+#define FAILSAFE_TIMEOUT_MS 60000UL // 1 minute
 
 // A custom structure to hold a variable-sized group of LDRs
 struct LDRGroup {
@@ -33,18 +35,18 @@ struct LDRBlob {
 
 uint8_t blobMax = 18; // largest blob size to calculate percentage
 // Global variables for your parsed data
-LDRGroup groupedLDRs[3][NUM_GROUPS]; // BASS is [0], MID is [1], TREB is [2]
-LDRBlob LDRBlobs[3][3] = {}; // First Number: BASS is [0], MID is [1], TREB is [2], Second number is tracking each blob
+LDRGroup groupedLDRs[NUM_BOARDS][NUM_GROUPS]; // BASS is [0], MID is [1], TREB is [2]
+LDRBlob LDRBlobs[NUM_BOARDS][3] = {}; // First Number: BASS is [0], MID is [1], TREB is [2], Second number is tracking each blob
 uint8_t ultrasonicDistanceHistoryCount = 0;
 uint8_t ultrasonicDistanceHistoryMax = 5;
-uint16_t ultrasonicDistance[3][5] = {
+uint16_t ultrasonicDistance[NUM_BOARDS][5] = {
                                  {0, 0, 0, 0, 0},
                                  {0, 0, 0, 0, 0},
                                  {0, 0, 0, 0, 0}
                                  };
 
 const uint16_t ultrasonicDistanceMax = 300;
-uint8_t ultrasonicDistancePercent[3];
+uint8_t ultrasonicDistancePercent[NUM_BOARDS];
 float distancePowerFactor = 0.6; // lower = more exaggerated near-field sensitivity
 
 // --- DELAYS --- 

@@ -21,40 +21,56 @@
 // =====================================================================
 
 // --- LFO frequency (Board 0) ---
-float LFO_FREQ_MIN = 0.3f;    // Hz at centerAngle 0
-float LFO_FREQ_MAX = 20.0f;   // Hz at centerAngle 100 (exponential map)
+float LFO_FREQ_MIN = 0.2f;    // Hz at centerAngle 0
+float LFO_FREQ_MAX = 18.0f;   // Hz at centerAngle 100 (exponential map)
 
 // --- Filter cutoff (Board 1) ---
-float LP_CUT_MIN = 270.0f;    // low-pass cutoff at angle 0
-float LP_CUT_MAX = 17000.0f;  // low-pass cutoff at angle 45
+float LP_CUT_MIN = 150.0f;    // low-pass cutoff at angle 0
+float LP_CUT_MAX = 16000.0f;  // low-pass cutoff at angle 45
 float HP_CUT_MIN = 1.0f;     // high-pass cutoff at angle 55
 float HP_CUT_MAX = 4500.0f;   // high-pass cutoff at angle 100
 float FILTER_Q   = 4.0f; // 0.707 is 0% resonance, 40% is Q ≈ 4.0
-float FILTER_ABS_MIN = 0.0f;      // absolute lower bound for any cutoff write
-float FILTER_ABS_MAX = 20000.0f;  // absolute upper bound for any cutoff write
+float FILTER_ABS_MIN = 100.0f;      // absolute lower bound for any cutoff write
+float FILTER_ABS_MAX = 19000.0f;  // absolute upper bound for any cutoff write
 float FILTER_STABLE_MIN = 20.0f;  // practical Biquad floor (never write below this)
 
 // --- LFO depth + taper (applied to filter cutoff) ---
-float LFO_DEPTH_OCT     = 2.0f;   // full modulation depth, +/- octaves
+float LFO_DEPTH_OCT     = 3.0f;   // full modulation depth, +/- octaves
 float LFO_DEPTH_OCT_MIN = 0.1f;   // tapered depth near the 20 kHz high end
 float LFO_TAPER_START_HZ = LP_CUT_MIN; // base cutoff above which depth tapers toward
                                      // LFO_DEPTH_OCT_MIN at FILTER_ABS_MAX (20 kHz)
 
 // --- Noise ---
-float NOISE_MAX = 0.50f;
+float NOISE_MAX = 0.30f;
 float NOISE_MIN = 0.00f;
 
 // --- BASE Settings ---
 uint8_t holdLastSetting    = 10; // how many iterations of create synth to hold the last option before reverting to standard
 
-uint8_t defaultBoard0Angle = 100;
-uint8_t defaultBoard1Angle = 50;
-uint8_t defaultBoard2Angle = 50;
+uint8_t defaultBoard0Angle = 25; // LFO 
+uint8_t defaultBoard1Angle = 50; // Filter 
+uint8_t defaultBoard2Angle = 40; // Notes
 
 // --- Oscillators (index 0=sine, 1=square, 2=triangle, 3=saw) ---
-float  oscVolume[3][4]         = {{ 0.25f, 0.20f, 0.25f, 0.20f }, { 0.25f, 0.20f, 0.25f, 0.20f }, { 0.25f, 0.20f, 0.25f, 0.20f }};
-int8_t oscSemitoneOffset[4] = { 0,     -12,   12,    0 };
-float  oscCentsOffset[4]    = { 0.0f,  0.0f,  3.0f,  -3.0f };
+float oscVolume_Base[4]          = { 0.42f, 0.15f, 0.25f, 0.05f };
+float oscSemitoneOffset_Base[4]  = { 0,     -12,   12,    0     };
+float oscCentsOffset_Base[4]     = { 0.0f,  2.0f,  0.0f,  -1.0f };
+// float oscVolume_Base[4]          = { 0.42f, 0.25f, 0.25f, 0.20f };
+// float oscSemitoneOffset_Base[4]  = { 0,     -12,   12,    0     };
+// float oscCentsOffset_Base[4]     = { 0.0f,  3.0f,  1.0f,  -2.0f };
+
+
+float oscVolume_Filth[4]         = { 0.07f, 0.30f, 0.08f, 0.30f };
+float oscSemitoneOffset_Filth[4] = { -24,   0,     12,     -12  };
+float oscCentsOffset_Filth[4]    = { 0.0f,  0.0f,  1.0f,  5.0f  };
+// float oscVolume_Filth[4]         = { 0.12f, 0.35f, 0.18f, 0.35f };
+// float oscSemitoneOffset_Filth[4] = { -24,   0,     12,     -12  };
+// float oscCentsOffset_Filth[4]    = { 0.0f,  0.0f,  1.0f,  5.0f  };
+
+
+//float  oscVolume[4]         = { 0.25f, 0.20f, 0.25f, 0.20f };
+//int8_t oscSemitoneOffset[4] = { 0,     -12,   12,    0 };
+//float  oscCentsOffset[4]    = { 0.0f,  0.0f,  3.0f,  -3.0f };
 
 // --- WAV player ---
 float WAV_PLAYER_VOLUME = 0.3f;
@@ -62,10 +78,11 @@ float WAV_PLAYER_VOLUME = 0.3f;
 // --- Smoothing amounts (0..1; higher = smoother/slower glide) ---
 static uint16_t lfoUpdatedFreq = 1000; // this doesn't actually change the dt well... 
 
-float smoothedCutoffFreqAmount = 0.4f;
-float smoothedLfoFreqAmount    = 0.4f;
-float smoothedNoteAmount       = 0.2f;
-float smoothedVolumeAmount     = 0.99f;
+float cutoffSmoothTime = 0.15f;  // in s, i.e: 150 ms
+float lfoSmoothTime    = 0.20f;  // 500 ms
+float noteSmoothTime   = 0.08f;  // 80 ms
+float volumeSmoothTime = 0.75f;  // 300 ms
+float oscSmoothTime    = 0.05f;  // 250 ms
 
 // --- Reverb (reuses globals.h values; kept here as the tuning entry point) ---
 float DRY_GAIN = 0.9; // Set gain for the dry signal
@@ -182,6 +199,14 @@ AudioConnection c_masterToOutR(masterMixer, 0, audioOutput, 1);
     WAVEFORM_SAWTOOTH
   };
 
+  // ---------------- LFO shape definitions ----------------
+  enum LfoShape {
+      LFO_SINE,
+      LFO_SAW_DOWN,
+      LFO_SQUARE
+  };
+  volatile LfoShape g_lfoShape = LFO_SINE;
+
 // =====================================================================
 //  MODULATION STATE
 //  volatile targets: written by modulate*(), read by lfoUpdate() ISR
@@ -196,6 +221,9 @@ volatile float g_targetNoise = 0.0f;
 volatile float g_targetNoteFreq[3] = {82.41f, 82.41f, 82.41f};    // Hz (E2)
 volatile bool  g_synthActive    = false;     // false => glide volume to 0
 volatile uint8_t noDataCount[3] = {0, 0, 0}; // tracks how many zeroes there were 
+float  g_targetOscVolume[4]         = { 0.25f, 0.20f, 0.25f, 0.20f };
+int8_t g_targetOscSemitoneOffset[4] = { 0,     -12,   12,    0 };
+float  g_targetOscCentsOffset[4]    = { 0.0f,  0.0f,  3.0f,  -3.0f };
 
 // smoothed (ISR-owned)
 float g_smoothedLfoFreq  = 1.0f;
@@ -204,6 +232,10 @@ float g_smoothedNoteFreq[3] = {82.41f, 82.41f, 82.41f};
 float g_smoothedVolume[3]   = {0.0f, 0.0f, 0.0f};
 float volTarget[3] = {0.0f, 0.0f, 0.0f};
 float g_smoothedNoise = 0.0f;
+// --- Oscillators (index 0=sine, 1=square, 2=triangle, 3=saw) ---
+float  g_smoothedOscVolume[4]         = { 0.25f, 0.20f, 0.25f, 0.20f };
+int8_t g_smoothedOscSemitoneOffset[4] = { 0,     -12,   12,    0 };
+float  g_smoothedOscCentsOffset[4]    = { 0.0f,  0.0f,  3.0f,  -3.0f };
 
 float g_lfoPhase = 0.0f;
 
@@ -222,7 +254,7 @@ void audioSetup() {
   SPI.setMOSI(11);
   SPI.setSCK(13);
   if (!(SD.begin(SDCARD_CS_PIN))) {
-    while (1) { Serial.println("Unable to access the SD card"); delay(500); }
+    while (1) { if (DEBUG_MODE) { Serial.println("Unable to access the SD card"); } delay(500); }
   }
 
   // ----------------------------------------------------
@@ -233,7 +265,7 @@ void audioSetup() {
       voiceOscs[voice][osc]->begin(waveformTypes[osc]); 
       voiceOscs[voice][osc]->amplitude(1.0f); // oscillator internal amplitude
       voiceOscs[voice][osc]->frequency(g_targetNoteFreq[0]); // initial pitch
-      oscMixers[voice]->gain( osc, oscVolume[voice][osc] * 0.0f ); // mixer controls actual output volume
+      oscMixers[voice]->gain( osc, g_smoothedOscVolume[osc] * 0.0f ); // mixer controls actual output volume
     }
   }
 
@@ -293,6 +325,11 @@ void modulateSynthFromBoard0(LDRBlob boardBlobs[3], uint8_t distancePct) {
   float a01 = angle / 100.0f;
   g_targetLfoFreq = mapAngleExp(a01, LFO_FREQ_MIN, LFO_FREQ_MAX);
   g_targetNoise = NOISE_MAX * std::pow(a01, 2.0); // zero is zero, i.e., ignoerin the NOISE_MIN Variable
+
+  // set the LFO Shape 
+  if (boardBlobs[2].size > 1) { g_lfoShape = LFO_SQUARE; }
+  else if (boardBlobs[1].size > 1) { g_lfoShape = LFO_SAW_DOWN; }
+  else { g_lfoShape = LFO_SINE; }
 }
 
 // BOARD 1 -> filter mode + base cutoff. Hard switch at the 45/55 boundaries.
@@ -330,44 +367,61 @@ void modulateSynthFromBoard1(LDRBlob boardBlobs[3], uint8_t distancePct) {
   //   g_filterMode   = FILTER_OFF;
   // }
   
+  // -- changing the wave table 
+  if (boardBlobs[2].size > 1) { } 
+  else if (boardBlobs[1].size > 1) { 
+    for (uint8_t osc = 0; osc < 4; osc++) {
+      g_targetOscVolume[osc]          = oscVolume_Filth[osc];
+      g_targetOscSemitoneOffset[osc]  = oscSemitoneOffset_Filth[osc];
+      g_targetOscCentsOffset[osc]     = oscCentsOffset_Filth[osc];
+    }
+  }
+  else { 
+    for (uint8_t osc = 0; osc < 4; osc++) {
+      g_targetOscVolume[osc]          = oscVolume_Base[osc];
+      g_targetOscSemitoneOffset[osc]  = oscSemitoneOffset_Base[osc];
+      g_targetOscCentsOffset[osc]     = oscCentsOffset_Base[osc];
+    }
+  }
 }
 
-// 10-note table: E2 A2 D3 E3 A3 D4 E4 A4 D5 E5 (equal temperament, A4=440)
-// const float NOTE_TABLE[10] = {
-//   82.41f,  // E2
-//   110.00f, // A2
-//   146.83f, // D3
-//   164.81f, // E3
-//   220.00f, // A3
-//   293.66f, // D4
-//   329.63f, // E4
-//   440.00f, // A4
-//   587.33f, // D5
-//   659.25f  // E5
-// };
+//10-note table: E2 A2 D3 E3 A3 D4 E4 A4 D5 E5 (equal temperament, A4=440)
+const float NOTE_TABLE[11] = {
+  73.42f,  // D2
+  82.41f,  // E2
+  110.00f, // A2
+  146.83f, // D3
+  164.81f, // E3
+  220.00f, // A3
+  293.66f, // D4
+  329.63f, // E4
+  440.00f, // A4
+  587.33f, // D5
+  659.25f  // E5
+};
 // 19-note table: A1 B1 D2 E2 G2 A2 B2 D3 E3 G3 A3 B3 D4 E4 G4 A4 B4 D5 E5
 // Equal temperament, A4 = 440 Hz
-const float NOTE_TABLE[19] = {
-   55.00f,  // A1
-   61.74f,  // B1
-   73.42f,  // D2
-   82.41f,  // E2
-   98.00f,  // G2
-  110.00f,  // A2
-  123.47f,  // B2
-  146.83f,  // D3
-  164.81f,  // E3
-  196.00f,  // G3
-  220.00f,  // A3
-  246.94f,  // B3
-  293.66f,  // D4
-  329.63f,  // E4
-  392.00f,  // G4
-  440.00f,  // A4
-  493.88f,  // B4
-  587.33f,  // D5
-  659.25f   // E5
-};
+// const float NOTE_TABLE[19] = {
+//    55.00f,  // A1
+//    61.74f,  // B1
+//    73.42f,  // D2
+//    82.41f,  // E2
+//    98.00f,  // G2
+//   110.00f,  // A2
+//   123.47f,  // B2
+//   146.83f,  // D3
+//   164.81f,  // E3
+//   196.00f,  // G3
+//   220.00f,  // A3
+//   246.94f,  // B3
+//   293.66f,  // D4
+//   329.63f,  // E4
+//   392.00f,  // G4
+//   440.00f,  // A4
+//   493.88f,  // B4
+//   587.33f,  // D5
+//   659.25f   // E5
+// };
 
 // BOARD 2 -> selected note frequency (index into NOTE_TABLE across angle).
 void modulateSynthFromBoard2(LDRBlob boardBlobs[3], uint8_t distancePct) {
@@ -392,7 +446,7 @@ void modulateSynthFromBoard2(LDRBlob boardBlobs[3], uint8_t distancePct) {
   g_targetNoteFreq[0] = NOTE_TABLE[idx];
 
   // FOR BLOB 1
-  if (boardBlobs[1].size > 0) {
+  if (boardBlobs[1].size > 1) {
     (void)distancePct; // UNUSED HOOK
     angle = boardBlobs[1].centerAngle;
     // UNUSED HOOKS: boardBlobs[1].centerRadius, boardBlobs[1].size (beyond empty check)
@@ -402,10 +456,12 @@ void modulateSynthFromBoard2(LDRBlob boardBlobs[3], uint8_t distancePct) {
 
     g_targetNoteFreq[1] = NOTE_TABLE[idx];
     volTarget[1] = 0.75f;
+  } else {
+    volTarget[1] = 0.0f;
   }
 
   // FOR BLOB 2
-  if (boardBlobs[2].size > 0) {
+  if (boardBlobs[2].size > 1) {
     (void)distancePct; // UNUSED HOOK
     angle = boardBlobs[2].centerAngle;
     // UNUSED HOOKS: boardBlobs[1].centerRadius, boardBlobs[1].size (beyond empty check)
@@ -414,33 +470,41 @@ void modulateSynthFromBoard2(LDRBlob boardBlobs[3], uint8_t distancePct) {
     idx = constrain(idx, 0, NUM_NOTES - 1);
 
     g_targetNoteFreq[2] = NOTE_TABLE[idx];
-    volTarget[1] = 0.5f;
+    volTarget[2] = 0.5f;
+  } else {
+    volTarget[2] = 0.0f;
   }
 }
 
 // =====================================================================
 //  1 kHz MODULATION TIMER  (owns all smoothing + hardware writes)
 // =====================================================================
+inline float glide(float current, float target, float smoothTime, float dt) {
+  float alpha = dt / smoothTime;
 
-// EMA glide: higher `amount` = smoother/slower. (spec's smoothing form)
-inline float glide(float smoothed, float target, float amount) {
-  return smoothed * amount + target * (1.0f - amount);
+  if (alpha > 1.0f) alpha = 1.0f;
+
+  return current + (target - current) * alpha;
 }
 
 void lfoUpdate() {
   const float dt = 1.0f/lfoUpdatedFreq; //0.001f; // 1 kHz
 
   // 1) Glide smoothed values toward volatile targets.
-  g_smoothedLfoFreq  = glide(g_smoothedLfoFreq,  g_targetLfoFreq,  smoothedLfoFreqAmount);
-  g_smoothedCutoff   = glide(g_smoothedCutoff,   g_targetCutoff,   smoothedCutoffFreqAmount);
-  g_smoothedNoteFreq[0] = glide(g_smoothedNoteFreq[0], g_targetNoteFreq[0], smoothedNoteAmount);
-  g_smoothedNoteFreq[1] = glide(g_smoothedNoteFreq[1], g_targetNoteFreq[1], smoothedNoteAmount);
-  g_smoothedNoteFreq[2] = glide(g_smoothedNoteFreq[2], g_targetNoteFreq[2], smoothedNoteAmount);
+  g_smoothedLfoFreq  = glide(g_smoothedLfoFreq,  g_targetLfoFreq,  lfoSmoothTime, dt);
+  g_smoothedCutoff   = glide(g_smoothedCutoff,   g_targetCutoff,   cutoffSmoothTime, dt);
   volTarget[0]    = g_synthActive ? 1.0f : 0.0f;
-  g_smoothedVolume[0]  = glide(g_smoothedVolume[0],   volTarget[0],        smoothedVolumeAmount);
-  g_smoothedVolume[1]  = glide(g_smoothedVolume[1],   volTarget[1],        smoothedVolumeAmount);
-  g_smoothedVolume[2]  = glide(g_smoothedVolume[1],   volTarget[2],        smoothedVolumeAmount);
-  g_smoothedNoise = glide(g_smoothedNoise, g_targetNoise,  smoothedVolumeAmount);
+  for (uint8_t i = 0; i <= 2; i++) {
+    g_smoothedNoteFreq[i] = glide(g_smoothedNoteFreq[i], g_targetNoteFreq[i], noteSmoothTime, dt);
+    g_smoothedVolume[i]  = glide(g_smoothedVolume[i],   volTarget[i],        volumeSmoothTime, dt);
+  }
+  g_smoothedNoise = glide(g_smoothedNoise, g_targetNoise,  volumeSmoothTime, dt);
+  for (uint8_t osc = 0; osc < 4; osc++) {
+    g_smoothedOscVolume[osc] = glide(g_smoothedOscVolume[osc], g_targetOscVolume[osc], oscSmoothTime, dt);
+    g_smoothedOscSemitoneOffset[osc] = glide(g_smoothedOscSemitoneOffset[osc], g_targetOscSemitoneOffset[osc], oscSmoothTime, dt);
+    g_smoothedOscCentsOffset[osc] = glide(g_smoothedOscCentsOffset[osc], g_targetOscCentsOffset[osc], oscSmoothTime, dt);
+  }
+
 
   // 2) Advance LFO phase.
   g_lfoPhase += 2.0f * PI * g_smoothedLfoFreq * dt;
@@ -449,14 +513,13 @@ void lfoUpdate() {
   // 3) Oscillator frequencies + volume (per-osc semitone/cents offset).
   for (uint8_t voice = 0; voice < 3; voice++) {
     for (uint8_t osc = 0; osc < 4; osc++) {
-      float f = g_smoothedNoteFreq[voice] * powf(2.0f, oscSemitoneOffset[osc] / 12.0f) * powf(2.0f, oscCentsOffset[osc] / 1200.0f);
+      float f = g_smoothedNoteFreq[voice] * powf(2.0f, g_smoothedOscSemitoneOffset[osc] / 12.0f) * powf(2.0f, g_smoothedOscCentsOffset[osc] / 1200.0f);
       voiceOscs[voice][osc]->frequency(f);
-      oscMixers[voice]->gain(osc, oscVolume[voice][osc] * g_smoothedVolume[voice]);
+      oscMixers[voice]->gain(osc, g_smoothedOscVolume[osc] * g_smoothedVolume[voice]);
     }
   }
 
   // 3.5 Noise amount 
-  Serial.println(g_smoothedNoise);
   noiseGen.amplitude(g_smoothedNoise);
 
   // 4) Filter. If OFF, set wide-open once and skip the LFO sweep.
@@ -477,7 +540,26 @@ void lfoUpdate() {
 
   // 4b) LFO-modulated cutoff, then asymmetric clamp (clamp the instantaneous
   //     value each tick; the non-clipping side keeps full swing).
-  float modCut = g_targetCutoff * powf(2.0f, depthOct * sinf(g_lfoPhase));
+  // Calculate current LFO value (-1 to +1)
+  float lfoValue;
+  switch (g_lfoShape) {
+      case LFO_SINE:
+          lfoValue = sinf(g_lfoPhase);
+          break;
+      case LFO_SAW_DOWN:
+          // +1 -> -1 over one cycle
+          lfoValue = 1.0f - (g_lfoPhase / PI);
+          break;
+      case LFO_SQUARE:
+          // Toggle between +1 and -1
+          lfoValue = (g_lfoPhase < PI) ? 1.0f : -1.0f;
+          break;
+      default:
+          lfoValue = sinf(g_lfoPhase);
+          break;
+  }
+  // Apply LFO to filter cutoff in octave space
+  float modCut = g_targetCutoff * powf(2.0f, depthOct * lfoValue);
   if (modCut > FILTER_ABS_MAX) modCut = FILTER_ABS_MAX;
   if (modCut < FILTER_ABS_MIN) modCut = FILTER_ABS_MIN;
   if (modCut < FILTER_STABLE_MIN) modCut = FILTER_STABLE_MIN; // Biquad stability floor
@@ -490,6 +572,7 @@ void lfoUpdate() {
   }
 
   // exit function if not in debug mode
+  return; // leaves
   if (!DEBUG_MODE) return;
   static uint32_t throttleCount = 0;
   throttleCount++;

@@ -21,11 +21,16 @@ void floodFill(int x, int y, int &sumX, int &sumY, int &count, int radiusCounts[
 
   radiusCounts[x]++;
 
-  // 4. Look in all 4 directions for touching shadows (The Maze logic)
-  floodFill(x + 1, y, sumX, sumY, count, radiusCounts, grid, visited);
-  floodFill(x - 1, y, sumX, sumY, count, radiusCounts, grid, visited);
-  floodFill(x, y + 1, sumX, sumY, count, radiusCounts, grid, visited);
-  floodFill(x, y - 1, sumX, sumY, count, radiusCounts, grid, visited);
+  // 4. Look in all 8 directions for touching shadows
+  floodFill(x + 1, y,     sumX, sumY, count, radiusCounts, grid, visited); // right
+  floodFill(x - 1, y,     sumX, sumY, count, radiusCounts, grid, visited); // left
+  floodFill(x,     y + 1, sumX, sumY, count, radiusCounts, grid, visited); // down
+  floodFill(x,     y - 1, sumX, sumY, count, radiusCounts, grid, visited); // up
+
+  floodFill(x + 1, y + 1, sumX, sumY, count, radiusCounts, grid, visited); // down-right
+  floodFill(x - 1, y + 1, sumX, sumY, count, radiusCounts, grid, visited); // down-left
+  floodFill(x + 1, y - 1, sumX, sumY, count, radiusCounts, grid, visited); // up-right
+  floodFill(x - 1, y - 1, sumX, sumY, count, radiusCounts, grid, visited); // up-left
 }
 
 void calculateBlobs(uint8_t freq) {
@@ -118,33 +123,35 @@ void calculateBlobs(uint8_t freq) {
 }
 
 void printBlobs(uint8_t freq) {
-  Serial.println("=== ACTIVE BLOBS ===");
-  
-  int activeCount = 0;
-  for (int i = 0; i < 3; i++) {
-    if (LDRBlobs[freq][i].size > 0) {
-      activeCount++;
-      Serial.print("Blob [");
-      Serial.print(i);
-      Serial.print("] -> ");
-      
-      Serial.print("Size: ");
-      Serial.print(LDRBlobs[freq][i].size);
-      
-      // Divide by 10.0 to convert the fixed-point integer back into a readable decimal
-      Serial.print(" | Radius: ");
-      Serial.print(LDRBlobs[freq][i].centerRadius, 1); 
-      
-      Serial.print(" | Angle Step: ");
-      Serial.println(LDRBlobs[freq][i].centerAngle, 1);
+  if (DEBUG_MODE) {
+    Serial.println("=== ACTIVE BLOBS ===");
+    
+    int activeCount = 0;
+    for (int i = 0; i < 3; i++) {
+      if (LDRBlobs[freq][i].size > 0) {
+        activeCount++;
+        Serial.print("Blob [");
+        Serial.print(i);
+        Serial.print("] -> ");
+        
+        Serial.print("Size: ");
+        Serial.print(LDRBlobs[freq][i].size);
+        
+        // Divide by 10.0 to convert the fixed-point integer back into a readable decimal
+        Serial.print(" | Radius: ");
+        Serial.print(LDRBlobs[freq][i].centerRadius, 1); 
+        
+        Serial.print(" | Angle Step: ");
+        Serial.println(LDRBlobs[freq][i].centerAngle, 1);
+      }
     }
+    
+    if (activeCount == 0) {
+      Serial.println("(No shadows detected)");
+    }
+    
+    Serial.println("--------------------");
   }
-  
-  if (activeCount == 0) {
-    Serial.println("(No shadows detected)");
-  }
-  
-  Serial.println("--------------------");
 }
 
 #endif

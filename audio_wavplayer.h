@@ -90,7 +90,7 @@ void audioSetup() {
 
   if (!(SD.begin(SDCARD_CS_PIN))) {
     while (1) {
-      Serial.println("Unable to access the SD card");
+      if (DEBUG_MODE) { Serial.println("Unable to access the SD card"); }
       delay(500);
     }
   }
@@ -203,8 +203,10 @@ void playFlash(uint8_t n, bool waitToFinish = true) {
 
     // Check if the file exists on SerialFlash
     if (!SerialFlash.exists(filename.c_str())) {
-      Serial.print("ERROR: File does not exist on SerialFlash: ");
-      Serial.println(filename);
+      if (DEBUG_MODE) {
+        Serial.print("ERROR: File does not exist on SerialFlash: ");
+        Serial.println(filename);
+            }
       return; // Exit if file not found
     }
 

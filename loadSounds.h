@@ -20,11 +20,7 @@
  */
 void copySoundsFromSdToFlash(const char* sdBaseFolderName) {
   if (DEBUG_MODE) {
-    Serial.print("Attempting to copy ");
-    Serial.print(MAX_SOUND_FILES);
-    Serial.print(" sounds from SD folder: /");
-    Serial.print(sdBaseFolderName);
-    Serial.print(" to Flash folder: /");
+    Serial.print("Attempting to copy "); Serial.print(MAX_SOUND_FILES); Serial.print(" sounds from SD folder: /"); Serial.print(sdBaseFolderName); Serial.print(" to Flash folder: /");
   }
 
   byte copyBuffer[COPY_BUFFER_SIZE]; // Buffer for copying data
@@ -41,29 +37,23 @@ void copySoundsFromSdToFlash(const char* sdBaseFolderName) {
 
 
     if (DEBUG_MODE) {
-      Serial.print("Copying ");
-      Serial.print(sdFilename);
-      Serial.print(" to ");
-      Serial.print(flashFilename);
-      Serial.print("...");
+      Serial.print("Copying "); Serial.print(sdFilename); Serial.print(" to "); Serial.print(flashFilename); Serial.print("...");
     }
 
     File sdFile = SD.open(sdFilename);
     if (!sdFile) {
-      Serial.println(" FAILED to open on SD!");
+      if (DEBUG_MODE) {Serial.println(" FAILED to open on SD!");}
       continue; // Move to the next file
     }
 
     size_t fileSize = sdFile.size();
     if (DEBUG_MODE) {
-      Serial.print(" Size: ");
-      Serial.print(fileSize);
-      Serial.print(" bytes. ");
+      Serial.print(" Size: "); Serial.print(fileSize); Serial.print(" bytes. ");
     }
 
     // Check if file already exists on flash and remove if desired (optional)
     if (SerialFlash.exists(flashFilename)) {
-      Serial.print("File exists on Flash, overwriting...");
+      if (DEBUG_MODE) {Serial.print("File exists on Flash, overwriting...");}
       SerialFlash.remove(flashFilename); // Remove existing file
     }
 
@@ -72,7 +62,7 @@ void copySoundsFromSdToFlash(const char* sdBaseFolderName) {
     bool createSuccess = SerialFlash.create(flashFilename, fileSize);
     
     if (!createSuccess) {
-      Serial.println(" FAILED to create on Flash! (Is there enough space or too many files?)");
+      if (DEBUG_MODE) {Serial.println(" FAILED to create on Flash! (Is there enough space or too many files?)");}
       sdFile.close();
       continue; // Move to the next file
     }
@@ -80,7 +70,7 @@ void copySoundsFromSdToFlash(const char* sdBaseFolderName) {
     // 2. ONLY if creation was successful, then open the file to get the SerialFlashFile object.
     SerialFlashFile flashFile = SerialFlash.open(flashFilename);
     if (!flashFile) { // This check is mostly for robustness; should usually succeed if create was true
-      Serial.println(" FAILED to open the newly created file on Flash!");
+      if (DEBUG_MODE) {Serial.println(" FAILED to open the newly created file on Flash!");}
       sdFile.close();
       // Consider trying to remove the partially created file if open fails
       SerialFlash.remove(flashFilename);
@@ -93,7 +83,7 @@ void copySoundsFromSdToFlash(const char* sdBaseFolderName) {
       size_t bytesToRead = min((size_t)COPY_BUFFER_SIZE, fileSize - bytesCopied);
       int bytesRead = sdFile.read(copyBuffer, bytesToRead);
       if (bytesRead <= 0) {
-        Serial.println(" FAILED to read from SD card!");
+        if (DEBUG_MODE) {Serial.println(" FAILED to read from SD card!");}
         flashFile.close(); // Close partial flash file
         sdFile.close();
         // You might want to remove the partially written file from flash here
@@ -103,19 +93,21 @@ void copySoundsFromSdToFlash(const char* sdBaseFolderName) {
 
       flashFile.write(copyBuffer, bytesRead);
       bytesCopied += bytesRead;
-      Serial.print("."); // Show progress
+      if (DEBUG_MODE) {Serial.print(".");} // Show progress}
     }
 
     flashFile.close(); // IMPORTANT: Close the flash file when done writing
     sdFile.close();
 
-    if (bytesCopied == fileSize) {
-      Serial.println(" SUCCESS!");
-    } else {
-      Serial.println(" FAILED: Incomplete copy!");
+    if (DEBUG_MODE) {
+      if (bytesCopied == fileSize) {
+        Serial.println(" SUCCESS!");
+      } else {
+        Serial.println(" FAILED: Incomplete copy!");
+      }
     }
   }
-  Serial.println("Finished attempting to copy all sounds from SD to Flash.");
+  if (DEBUG_MODE) {Serial.println("Finished attempting to copy all sounds from SD to Flash.");}
 }
 
 
@@ -136,7 +128,7 @@ void eraseAllFlashFiles() {
 }
 
 void listFilesonFlash() {
-  Serial.println("\n--- Listing Files on SPI Flash ---");
+  if (DEBUG_MODE) {Serial.println("\n--- Listing Files on SPI Flash ---");}
 
   char filename[64];   // Buffer to hold the filename
   uint32_t filesize;   // Variable to hold the file size
@@ -149,14 +141,11 @@ void listFilesonFlash() {
   // readdir() returns true if a file is found, false otherwise.
   // It populates 'filename' and 'filesize'.
   while (SerialFlash.readdir(filename, sizeof(filename), filesize)) {
-    Serial.print("File: ");
-    Serial.print(filename);
-    Serial.print(", Size: ");
-    Serial.print(filesize);
-    Serial.println(" bytes");
+    if (DEBUG_MODE) {
+      Serial.print("File: "); Serial.print(filename); Serial.print(", Size: "); Serial.print(filesize); Serial.println(" bytes");}
   }
 
-  Serial.println("--- End of File List ---");
+  if (DEBUG_MODE) { Serial.println("--- End of File List ---"); }
 }
 
 #endif
